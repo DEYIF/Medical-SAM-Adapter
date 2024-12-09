@@ -5,6 +5,7 @@ from torch.utils.data.sampler import SubsetRandomSampler
 
 from utils import *
 
+from .busi import BUSI
 from .atlas import Atlas
 from .brat import Brat
 from .ddti import DDTI
@@ -48,6 +49,15 @@ def get_dataloader(args):
 
         nice_train_loader = DataLoader(isic_train_dataset, batch_size=args.b, shuffle=True, num_workers=8, pin_memory=True)
         nice_test_loader = DataLoader(isic_test_dataset, batch_size=args.b, shuffle=False, num_workers=8, pin_memory=True)
+        '''end'''
+    
+    elif args.dataset == 'busi':
+        '''busi data'''
+        busi_train_dataset = BUSI(args, args.data_path, transform = transform_train, transform_msk= transform_train_seg, mode = 'Training')
+        busi_test_dataset = BUSI(args, args.data_path, transform = transform_test, transform_msk= transform_test_seg, mode = 'Test')
+
+        nice_train_loader = DataLoader(busi_train_dataset, batch_size=args.b, shuffle=True, num_workers=8, pin_memory=True)
+        nice_test_loader = DataLoader(busi_test_dataset, batch_size=args.b, shuffle=False, num_workers=8, pin_memory=True)
         '''end'''
 
     elif args.dataset == 'decathlon':
