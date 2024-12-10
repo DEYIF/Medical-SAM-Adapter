@@ -1,4 +1,8 @@
 /checkpoint
 /logs
 /runs
+__pycache__/
 pipline.sh
+*.pyc
+*.pyo
+*.deb
