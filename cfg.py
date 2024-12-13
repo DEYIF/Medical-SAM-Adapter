@@ -12,7 +12,7 @@ def parse_args():
     parser.add_argument('-type', type=str, default='map', help='condition type:ave,rand,rand_map')
     parser.add_argument('-vis', type=int, default=None, help='visualization')
     parser.add_argument('-reverse', type=bool, default=False, help='adversary reverse')
-    parser.add_argument('-pretrain', type=bool, default=False, help='adversary reverse')
+    parser.add_argument('-pretrain', type=str, default=None, help='pretrain model path')
     parser.add_argument('-val_freq',type=int,default=5,help='interval between each validation')
     parser.add_argument('-gpu', type=bool, default=True, help='use gpu or not')
     parser.add_argument('-gpu_device', type=int, default=0, help='use which gpu')
@@ -45,6 +45,7 @@ def parse_args():
     parser.add_argument('-evl_chunk', type=int, default=None , help='evaluation chunk')
     parser.add_argument('-mid_dim', type=int, default=None , help='middle dim of adapter or the rank of lora matrix')
     parser.add_argument('-multimask_output', type=int, default=1 , help='the number of masks output for multi-class segmentation, set 2 for REFUGE dataset.')
+    parser.add_argument('-ckpt_path', type=str, default='./checkpoints' , help='the outputh path of new checkpoint file')
     parser.add_argument(
     '-data_path',
     type=str,
