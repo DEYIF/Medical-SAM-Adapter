@@ -67,18 +67,16 @@ def main():
         new_state_dict = state_dict
 
     net.load_state_dict(new_state_dict)
+    writer = SummaryWriter(log_dir=os.path.join(
+            settings.LOG_DIR, args.net, settings.TIME_NOW))
 
-    # args.path_helper = checkpoint['path_helper']
-    # logger = create_logger(args.path_helper['log_path'])
-    # print(f'=> loaded checkpoint {checkpoint_file} (epoch {start_epoch})')
+    args.path_helper = checkpoint['path_helper']
+    logger = create_logger(args.path_helper['log_path'])
+    print(f'=> loaded checkpoint {checkpoint_file} (epoch {start_epoch})')
 
     # args.path_helper = set_log_dir('logs', args.exp_name)
     # logger = create_logger(args.path_helper['log_path'])
     # logger.info(args)
-
-    args.path_helper = set_log_dir('logs', args.exp_name)
-    logger = create_logger(args.path_helper['log_path'])
-    logger.info(args)
 
     '''segmentation data'''
     nice_train_loader, nice_test_loader = get_dataloader(args)
@@ -86,16 +84,22 @@ def main():
     '''begain valuation'''
     best_acc = 0.0
     best_tol = 1e4
+    best_dice = 0.0
+    
+    for epoch in range(settings.EPOCH):
 
-    if args.mod == 'sam_adpt':
         net.eval()
+        # check if the epoch is a multiple of val_freq
+        if epoch and epoch % args.val_freq == 0 or epoch == settings.EPOCH-1:
+            if args.dataset != 'REFUGE':
+                tol, (eiou, edice) = function.validation_sam(args, nice_test_loader, epoch, net, writer)
+                logger.info(f'Total score: {tol}, IOU: {eiou}, DICE: {edice} || @ epoch {epoch}.')
+            else:
+                tol, (eiou_cup, eiou_disc, edice_cup, edice_disc) = function.validation_sam(args, nice_test_loader, epoch, net, writer)
+                logger.info(f'Total score: {tol}, IOU_CUP: {eiou_cup}, IOU_DISC: {eiou_disc}, DICE_CUP: {edice_cup}, DICE_DISC: {edice_disc} || @ epoch {epoch}.')
+            
 
-        if args.dataset != 'REFUGE':
-            tol, (eiou, edice) = function.validation_sam(args, nice_test_loader, start_epoch, net)
-            logger.info(f'Total score: {tol}, IOU: {eiou}, DICE: {edice} || @ epoch {start_epoch}.')
-        else:
-            tol, (eiou_cup, eiou_disc, edice_cup, edice_disc) = function.validation_sam(args, nice_test_loader, start_epoch, net)
-            logger.info(f'Total score: {tol}, IOU_CUP: {eiou_cup}, IOU_DISC: {eiou_disc}, DICE_CUP: {edice_cup}, DICE_DISC: {edice_disc} || @ epoch {start_epoch}.')
+    writer.close()
 
 
 if __name__ == '__main__':
