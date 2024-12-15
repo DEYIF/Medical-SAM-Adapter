@@ -370,13 +370,27 @@ def create_logger(log_dir, phase='train'):
     time_str = time.strftime('%Y-%m-%d-%H-%M')
     log_file = '{}_{}.log'.format(time_str, phase)
     final_log_file = os.path.join(log_dir, log_file)
+    
+    # Create a log file directory
+    os.makedirs(log_dir, exist_ok=True)
+
+    # Configuring the log Format
     head = '%(asctime)-15s %(message)s'
-    logging.basicConfig(filename=str(final_log_file),
-                        format=head)
+    
+    # Check whether log handlers exist to avoid repeated additions
     logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
-    console = logging.StreamHandler()
-    logging.getLogger('').addHandler(console)
+    if not logger.hasHandlers():
+        logging.basicConfig(filename=str(final_log_file), format=head, level=logging.INFO)
+    
+    # setup file handler
+    file_handler = logging.FileHandler(final_log_file)
+    file_handler.setFormatter(logging.Formatter(head))
+    logger.addHandler(file_handler)
+
+    # setup console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(logging.Formatter(head))
+    logger.addHandler(console_handler)
 
     return logger
 
@@ -1218,6 +1232,18 @@ def random_box(multi_rater):
     x_max = random.choice(np.arange(x_max-10,x_max+11))
     y_min = random.choice(np.arange(y_min-10,y_min+11))
     y_max = random.choice(np.arange(y_max-10,y_max+11))
+    # np.array([y_min, x_min, y_max, x_max])
+    return np.array([x_min, x_max, y_min, y_max])
 
-    return x_min, x_max, y_min, y_max
-
+def rect_box(prompt):
+    # find all white pixels
+    white_pixels = np.column_stack(np.where(prompt == 1))
+    # find the boundary
+    if len(white_pixels) > 0:
+        x_min, y_min = np.min(white_pixels, axis=0)
+        x_max, y_max = np.max(white_pixels, axis=0)
+    else:
+        # print("invalid mask")
+        return np.array([0,0,prompt.shape[1],prompt.shape[0]])
+    input_box = np.array([y_min, x_min, y_max, x_max])  # note that is (y,x)
+    return input_box

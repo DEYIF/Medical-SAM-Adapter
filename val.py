@@ -70,35 +70,35 @@ def main():
     writer = SummaryWriter(log_dir=os.path.join(
             settings.LOG_DIR, args.net, settings.TIME_NOW))
 
-    args.path_helper = checkpoint['path_helper']
+    args.path_helper = set_log_dir('logs', args.exp_name)
     logger = create_logger(args.path_helper['log_path'])
+    logger.info(args)
     print(f'=> loaded checkpoint {checkpoint_file} (epoch {start_epoch})')
-
-    # args.path_helper = set_log_dir('logs', args.exp_name)
-    # logger = create_logger(args.path_helper['log_path'])
-    # logger.info(args)
 
     '''segmentation data'''
     nice_train_loader, nice_test_loader = get_dataloader(args)
 
-    '''begain valuation'''
-    best_acc = 0.0
-    best_tol = 1e4
-    best_dice = 0.0
-    
-    for epoch in range(settings.EPOCH):
+    # 设置模型为评估模式
+    net.eval()
 
-        net.eval()
-        # check if the epoch is a multiple of val_freq
-        if epoch and epoch % args.val_freq == 0 or epoch == settings.EPOCH-1:
-            if args.dataset != 'REFUGE':
-                tol, (eiou, edice) = function.validation_sam(args, nice_test_loader, epoch, net, writer)
-                logger.info(f'Total score: {tol}, IOU: {eiou}, DICE: {edice} || @ epoch {epoch}.')
-            else:
-                tol, (eiou_cup, eiou_disc, edice_cup, edice_disc) = function.validation_sam(args, nice_test_loader, epoch, net, writer)
-                logger.info(f'Total score: {tol}, IOU_CUP: {eiou_cup}, IOU_DISC: {eiou_disc}, DICE_CUP: {edice_cup}, DICE_DISC: {edice_disc} || @ epoch {epoch}.')
-            
+    # 开始评估
+    time_start = time.time()
+    logger.info("Starting evaluation...")
 
+    # 根据数据集类型执行不同的评估逻辑
+    if args.dataset != 'REFUGE':
+        tol, (eiou, edice) = function.validation_sam(args, nice_test_loader, 0, net, writer)
+        logger.info(f'Evaluation completed. Total score: {tol}, IOU: {eiou}, DICE: {edice}.')
+    else:
+        tol, (eiou_cup, eiou_disc, edice_cup, edice_disc) = function.validation_sam(args, nice_test_loader, 0, net, writer)
+        logger.info(
+            f'Evaluation completed. Total score: {tol}, '
+            f'IOU_CUP: {eiou_cup}, IOU_DISC: {eiou_disc}, '
+            f'DICE_CUP: {edice_cup}, DICE_DISC: {edice_disc}.'
+        )
+
+    time_end = time.time()
+    logger.info(f"Evaluation time: {time_end - time_start:.2f} seconds.")
     writer.close()
 
 

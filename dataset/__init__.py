@@ -53,11 +53,22 @@ def get_dataloader(args):
     
     elif args.dataset == 'busi':
         '''busi data'''
-        busi_train_dataset = BUSI(args, args.data_path, transform = transform_train, transform_msk= transform_train_seg, mode = 'Training')
-        busi_test_dataset = BUSI(args, args.data_path, transform = transform_test, transform_msk= transform_test_seg, mode = 'Test')
+        busi_train_dataset = BUSI(args, args.data_path, transform = transform_train, transform_msk= transform_train_seg, mode = 'train')
+        busi_test_dataset = BUSI(args, args.data_path, transform = transform_test, transform_msk= transform_test_seg, mode = 'test')
 
         nice_train_loader = DataLoader(busi_train_dataset, batch_size=args.b, shuffle=True, num_workers=8, pin_memory=True)
         nice_test_loader = DataLoader(busi_test_dataset, batch_size=args.b, shuffle=False, num_workers=8, pin_memory=True)
+        '''end'''
+
+    elif args.dataset == 'busi_unet':
+        # prompted by U-Net
+        '''busi-unet data'''
+        # no train data in this dataset
+        busiunet_train_dataset = BUSI(args, args.data_path, transform = transform_train, transform_msk= transform_train_seg, mode = 'test', prompt_source = 'unet', prompt = args.prompt_type)
+        busiunet_test_dataset = BUSI(args, args.data_path, transform = transform_test, transform_msk= transform_test_seg, mode = 'test', prompt_source = 'unet', prompt = args.prompt_type)
+
+        nice_train_loader = DataLoader(busiunet_train_dataset, batch_size=args.b, shuffle=True, num_workers=8, pin_memory=True)
+        nice_test_loader = DataLoader(busiunet_test_dataset, batch_size=args.b, shuffle=False, num_workers=8, pin_memory=True)
         '''end'''
 
     elif args.dataset == 'decathlon':
