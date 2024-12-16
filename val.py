@@ -78,19 +78,18 @@ def main():
     '''segmentation data'''
     nice_train_loader, nice_test_loader = get_dataloader(args)
 
-    # 设置模型为评估模式
+    # set the model to evaluation mode
     net.eval()
 
-    # 开始评估
+    # start evaluation
     time_start = time.time()
     logger.info("Starting evaluation...")
 
-    # 根据数据集类型执行不同的评估逻辑
     if args.dataset != 'REFUGE':
-        tol, (eiou, edice) = function.validation_sam(args, nice_test_loader, 0, net, writer)
+        tol, (eiou, edice) = function.validation_sam(args, nice_test_loader, start_epoch, net, writer)
         logger.info(f'Evaluation completed. Total score: {tol}, IOU: {eiou}, DICE: {edice}.')
     else:
-        tol, (eiou_cup, eiou_disc, edice_cup, edice_disc) = function.validation_sam(args, nice_test_loader, 0, net, writer)
+        tol, (eiou_cup, eiou_disc, edice_cup, edice_disc) = function.validation_sam(args, nice_test_loader, start_epoch, net, writer)
         logger.info(
             f'Evaluation completed. Total score: {tol}, '
             f'IOU_CUP: {eiou_cup}, IOU_DISC: {eiou_disc}, '
