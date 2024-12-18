@@ -43,18 +43,29 @@ def main():
 
     net = get_network(args, args.net, use_gpu=args.gpu, gpu_device=GPUdevice, distribution = args.distributed)
 
-    '''load pretrained model'''
-    assert args.weights != 0
-    print(f'=> resuming from {args.weights}')
-    assert os.path.exists(args.weights)
-    checkpoint_file = os.path.join(args.weights)
-    assert os.path.exists(checkpoint_file)
-    loc = 'cuda:{}'.format(args.gpu_device)
-    checkpoint = torch.load(checkpoint_file, map_location=loc)
-    start_epoch = checkpoint['epoch']
-    best_tol = checkpoint['best_tol']
 
-    state_dict = checkpoint['state_dict']
+    if args.weights != 0:
+        '''load adapted model'''
+        assert args.weights != 0
+        print(f'=> resuming from {args.weights}')
+        assert os.path.exists(args.weights)
+        checkpoint_file = os.path.join(args.weights)
+        assert os.path.exists(checkpoint_file)
+        loc = 'cuda:{}'.format(args.gpu_device)
+        checkpoint = torch.load(checkpoint_file, map_location=loc)
+        start_epoch = checkpoint['epoch']
+        best_tol = checkpoint['best_tol']
+
+        state_dict = checkpoint['state_dict']
+    else :
+        '''load pretrained model'''
+        checkpoint_file = os.path.join(args.sam_ckpt)
+        assert os.path.exists(checkpoint_file)
+        loc = 'cuda:{}'.format(args.gpu_device)
+        checkpoint = torch.load(checkpoint_file, map_location=loc)
+        start_epoch = 0
+        state_dict = checkpoint
+
     if args.distributed != 'none':
         from collections import OrderedDict
         new_state_dict = OrderedDict()
@@ -65,7 +76,7 @@ def main():
         # load params
     else:
         new_state_dict = state_dict
-
+    
     net.load_state_dict(new_state_dict)
     writer = SummaryWriter(log_dir=os.path.join(
             settings.LOG_DIR, args.net, settings.TIME_NOW))
@@ -74,6 +85,7 @@ def main():
     logger = create_logger(args.path_helper['log_path'])
     logger.info(args)
     print(f'=> loaded checkpoint {checkpoint_file} (epoch {start_epoch})')
+
 
     '''segmentation data'''
     nice_train_loader, nice_test_loader = get_dataloader(args)

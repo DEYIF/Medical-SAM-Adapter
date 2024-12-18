@@ -965,18 +965,21 @@ def hook_model(model, image_f):
 
     return hook
 
-def vis_image(imgs, pred_masks, gt_masks, save_path, reverse = False, points = None, boxes = None):
+def vis_image(imgs, pred_masks, gt_masks, save_path, reverse = False, points = None, boxes = None, pt_images = None):
     
     b,c,h,w = pred_masks.size()
     dev = pred_masks.get_device()
     row_num = min(b, 4)
 
+    if pt_images is None:
+        pt_images = gt_masks
+
     if torch.max(pred_masks) > 1 or torch.min(pred_masks) < 0:
         pred_masks = torch.sigmoid(pred_masks)
-
     if reverse == True:
         pred_masks = 1 - pred_masks
         gt_masks = 1 - gt_masks
+        pt_images = 1 - pt_images
     if c == 2: # for REFUGE multi mask output
         pred_disc, pred_cup = pred_masks[:,0,:,:].unsqueeze(1).expand(b,3,h,w), pred_masks[:,1,:,:].unsqueeze(1).expand(b,3,h,w)
         gt_disc, gt_cup = gt_masks[:,0,:,:].unsqueeze(1).expand(b,3,h,w), gt_masks[:,1,:,:].unsqueeze(1).expand(b,3,h,w)
@@ -1000,6 +1003,7 @@ def vis_image(imgs, pred_masks, gt_masks, save_path, reverse = False, points = N
             imgs = imgs[:,0,:,:].unsqueeze(1).expand(b,3,h,w)
         pred_masks = pred_masks[:,0,:,:].unsqueeze(1).expand(b,3,h,w)
         gt_masks = gt_masks[:,0,:,:].unsqueeze(1).expand(b,3,h,w)
+        pt_images = pt_images[:,0,:,:].unsqueeze(1).expand(b,3,h,w)
         if points != None:
             for i in range(b):
                 if args.thd:
@@ -1011,6 +1015,10 @@ def vis_image(imgs, pred_masks, gt_masks, save_path, reverse = False, points = N
                     gt_masks[i,0,p[i,0]-5:p[i,0]+5,p[i,1]-5:p[i,1]+5] = 0.5
                     gt_masks[i,1,p[i,0]-5:p[i,0]+5,p[i,1]-5:p[i,1]+5] = 0.1
                     gt_masks[i,2,p[i,0]-5:p[i,0]+5,p[i,1]-5:p[i,1]+5] = 0.4
+
+                    pt_images[i,0,p[i,0]-5:p[i,0]+5,p[i,1]-5:p[i,1]+5] = 0.5
+                    pt_images[i,1,p[i,0]-5:p[i,0]+5,p[i,1]-5:p[i,1]+5] = 0.1
+                    pt_images[i,2,p[i,0]-5:p[i,0]+5,p[i,1]-5:p[i,1]+5] = 0.4
         if boxes is not None:
             for i in range(b):
                 # the next line causes: ValueError: Tensor uint8 expected, got torch.float32
@@ -1021,7 +1029,15 @@ def vis_image(imgs, pred_masks, gt_masks, save_path, reverse = False, points = N
                 img01 = img255 / 255
                 # torchvision.utils.save_image(img01, save_path + "_boxes.png")
                 imgs[i, :] = img01
-        tup = (imgs[:row_num,:,:,:],pred_masks[:row_num,:,:,:], gt_masks[:row_num,:,:,:])
+        
+        if pt_images is not None:
+            pt_images = torchvision.transforms.Resize((h,w))(pt_images)
+            if pt_images.size(1) == 1:
+                pt_images = pt_images[:,0,:,:].unsqueeze(1).expand(b,3,h,w)
+            tup = (imgs[:row_num,:,:,:], pt_images[:row_num,:,:,:], pred_masks[:row_num,:,:,:], gt_masks[:row_num,:,:,:])
+        else:
+            tup = (imgs[:row_num,:,:,:], pred_masks[:row_num,:,:,:], gt_masks[:row_num,:,:,:])
+
         # compose = torch.cat((imgs[:row_num,:,:,:],pred_disc[:row_num,:,:,:], pred_cup[:row_num,:,:,:], gt_disc[:row_num,:,:,:], gt_cup[:row_num,:,:,:]),0)
         compose = torch.cat(tup,0)
         vutils.save_image(compose, fp = save_path, nrow = row_num, padding = 10)

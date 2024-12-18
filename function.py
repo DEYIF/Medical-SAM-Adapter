@@ -253,6 +253,10 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
                 point_labels = pack['p_label']
             name = pack['image_meta_dict']['filename_or_obj']
             
+            pt_imagesw = pack.get('pt_image', None)
+            if pt_imagesw is not None:
+                pt_imagesw = pt_imagesw.to(dtype=torch.float32, device=GPUdevice)
+
             buoy = 0
             if args.evl_chunk:
                 evl_ch = int(args.evl_chunk)
@@ -264,18 +268,23 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
                     pt = ptw[:,:,buoy: buoy + evl_ch]
                 else:
                     pt = ptw
-
+                if pt_imagesw is not None:
+                    pt_images = pt_imagesw[...,buoy:buoy + evl_ch]
                 imgs = imgsw[...,buoy:buoy + evl_ch]
                 masks = masksw[...,buoy:buoy + evl_ch]
                 buoy += evl_ch
 
                 if args.thd:
                     pt = rearrange(pt, 'b n d -> (b d) n')
+                    if pt_imagesw is not None:
+                        pt_images = rearrange(pt_images, 'b c h w d -> (b d) c h w ')
                     imgs = rearrange(imgs, 'b c h w d -> (b d) c h w ')
                     masks = rearrange(masks, 'b c h w d -> (b d) c h w ')
                     imgs = imgs.repeat(1,3,1,1)
                     point_labels = torch.ones(imgs.size(0))
 
+                    if pt_imagesw is not None:
+                        pt_images = torchvision.transforms.Resize((args.image_size,args.image_size))(pt_images)
                     imgs = torchvision.transforms.Resize((args.image_size,args.image_size))(imgs)
                     masks = torchvision.transforms.Resize((args.out_size,args.out_size))(masks)
                 
@@ -354,12 +363,13 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
                     '''vis images'''
                     if ind % args.vis == 0:
                         namecat = 'Test'
-                        for na in name[:2
-                        
-                        ]:
+                        for na in name[:2]:
                             img_name = na.split('/')[-1].split('.')[0]
                             namecat = namecat + img_name + '+'
-                        vis_image(imgs,pred, masks, os.path.join(args.path_helper['sample_path'], namecat+'epoch+' +str(epoch) + '.jpg'), reverse=False, points=showp)
+                        if pt_imagesw is not None:
+                            vis_image(imgs,pred,masks, os.path.join(args.path_helper['sample_path'], namecat+'epoch+' +str(epoch) + '.jpg'), reverse=False, points=showp, pt_images=pt_images)
+                        else:
+                            vis_image(imgs,pred, masks, os.path.join(args.path_helper['sample_path'], namecat+'epoch+' +str(epoch) + '.jpg'), reverse=False, points=showp)
                     
 
                     temp = eval_seg(pred, masks, threshold)
