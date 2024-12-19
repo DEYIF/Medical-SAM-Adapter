@@ -240,22 +240,28 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
     else:
         lossfunc = criterion_G
 
+    # Clarify: pt means prompt point, pt_images means prompt image, box means prompt box
     with tqdm(total=n_val, desc='Validation round', unit='batch', leave=False) as pbar:
         for ind, pack in enumerate(val_loader):
             imgsw = pack['image'].to(dtype = torch.float32, device = GPUdevice)
             masksw = pack['label'].to(dtype = torch.float32, device = GPUdevice)
-            # for k,v in pack['image_meta_dict'].items():
-            #     print(k)
+            pt_imagesw = pack.get('pt_image', None)
+            if pt_imagesw is not None:
+                pt_imagesw = pt_imagesw.to(dtype=torch.float32, device=GPUdevice)
+
+            boxw = None
+            point_labels = pack.get('p_label', None)
+            
+            if args.prompt_type == 'box':
+                boxw = pack['box']
+            
             if 'pt' not in pack or args.thd:
                 imgsw, ptw, masksw = generate_click_prompt(imgsw, masksw)
             else:
                 ptw = pack['pt']
                 point_labels = pack['p_label']
-            name = pack['image_meta_dict']['filename_or_obj']
             
-            pt_imagesw = pack.get('pt_image', None)
-            if pt_imagesw is not None:
-                pt_imagesw = pt_imagesw.to(dtype=torch.float32, device=GPUdevice)
+            name = pack['image_meta_dict']['filename_or_obj']
 
             buoy = 0
             if args.evl_chunk:
@@ -267,6 +273,7 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
                 if args.thd:
                     pt = ptw[:,:,buoy: buoy + evl_ch]
                 else:
+                    box = boxw
                     pt = ptw
                 if pt_imagesw is not None:
                     pt_images = pt_imagesw[...,buoy:buoy + evl_ch]
@@ -304,6 +311,13 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
                         coords_torch, labels_torch, showp = coords_torch[None, :, :], labels_torch[None, :], showp[None, :, :]
                     pt = (coords_torch, labels_torch)
 
+                if args.prompt_type == 'box':
+                    # 将 box_cup 转换为 PyTorch 张量，并转移到指定的 GPU 设备
+                    box_torch = torch.as_tensor(box, dtype=torch.float, device=GPUdevice)
+
+                    # 如果需要将其转换为 [1, 1, 4] 形状（假设只有一个 box 坐标）
+                    box_torch = box_torch[None, None, :]  # 维度变为 [1, 1, 4]
+
                 '''init'''
                 if hard:
                     true_mask_ave = (true_mask_ave > 0.5).float()
@@ -313,52 +327,101 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
                 '''test'''
                 with torch.no_grad():
                     imge= net.image_encoder(imgs)
-                    if args.net == 'sam' or args.net == 'mobile_sam':
-                        se, de = net.prompt_encoder(
-                            points=pt,
-                            boxes=None,
-                            masks=None,
-                        )
-                    elif args.net == "efficient_sam":
-                        coords_torch,labels_torch = transform_prompt(coords_torch,labels_torch,h,w)
-                        se = net.prompt_encoder(
-                            coords=coords_torch,
-                            labels=labels_torch,
-                        )
+                    if args.prompt_type == 'click':
+                        if args.net == 'sam' or args.net == 'mobile_sam':
+                            se, de = net.prompt_encoder(
+                                points=pt,
+                                boxes=None,
+                                masks=None,
+                            )
+                        elif args.net == "efficient_sam":
+                            coords_torch,labels_torch = transform_prompt(coords_torch,labels_torch,h,w)
+                            se = net.prompt_encoder(
+                                coords=coords_torch,
+                                labels=labels_torch,
+                            )
 
-                    if args.net == 'sam':
-                        pred, _ = net.mask_decoder(
-                            image_embeddings=imge,
-                            image_pe=net.prompt_encoder.get_dense_pe(), 
-                            sparse_prompt_embeddings=se,
-                            dense_prompt_embeddings=de, 
-                            multimask_output=(args.multimask_output > 1),
-                        )
-                    elif args.net == 'mobile_sam':
-                        pred, _ = net.mask_decoder(
-                            image_embeddings=imge,
-                            image_pe=net.prompt_encoder.get_dense_pe(), 
-                            sparse_prompt_embeddings=se,
-                            dense_prompt_embeddings=de, 
-                            multimask_output=False,
-                        )
-                    elif args.net == "efficient_sam":
-                        se = se.view(
-                            se.shape[0],
-                            1,
-                            se.shape[1],
-                            se.shape[2],
-                        )
-                        pred, _ = net.mask_decoder(
-                            image_embeddings=imge,
-                            image_pe=net.prompt_encoder.get_dense_pe(), 
-                            sparse_prompt_embeddings=se,
-                            multimask_output=False,
-                        )
+                        if args.net == 'sam':
+                            pred, _ = net.mask_decoder(
+                                image_embeddings=imge,
+                                image_pe=net.prompt_encoder.get_dense_pe(), 
+                                sparse_prompt_embeddings=se,
+                                dense_prompt_embeddings=de, 
+                                multimask_output=(args.multimask_output > 1),
+                            )
+                        elif args.net == 'mobile_sam':
+                            pred, _ = net.mask_decoder(
+                                image_embeddings=imge,
+                                image_pe=net.prompt_encoder.get_dense_pe(), 
+                                sparse_prompt_embeddings=se,
+                                dense_prompt_embeddings=de, 
+                                multimask_output=False,
+                            )
+                        elif args.net == "efficient_sam":
+                            se = se.view(
+                                se.shape[0],
+                                1,
+                                se.shape[1],
+                                se.shape[2],
+                            )
+                            pred, _ = net.mask_decoder(
+                                image_embeddings=imge,
+                                image_pe=net.prompt_encoder.get_dense_pe(), 
+                                sparse_prompt_embeddings=se,
+                                multimask_output=False,
+                            )
 
-                    # Resize to the ordered output size
-                    pred = F.interpolate(pred,size=(args.out_size,args.out_size))
-                    tot += lossfunc(pred, masks)
+                        # Resize to the ordered output size
+                        pred = F.interpolate(pred,size=(args.out_size,args.out_size))
+                        tot += lossfunc(pred, masks)
+
+                    if args.prompt_type == 'box':
+                        if args.net == 'sam' or args.net == 'mobile_sam':
+                            se, de = net.prompt_encoder(
+                                points=None,
+                                boxes=box_torch,
+                                masks=None,
+                            )
+                        elif args.net == "efficient_sam":
+                            coords_torch,labels_torch = transform_prompt(coords_torch,labels_torch,h,w)
+                            se = net.prompt_encoder(
+                                coords=coords_torch,
+                                labels=labels_torch,
+                            )
+
+                        if args.net == 'sam':
+                            pred, _ = net.mask_decoder(
+                                image_embeddings=imge,
+                                image_pe=net.prompt_encoder.get_dense_pe(), 
+                                sparse_prompt_embeddings=se,
+                                dense_prompt_embeddings=de, 
+                                multimask_output=(args.multimask_output > 1),
+                            )
+                        elif args.net == 'mobile_sam':
+                            pred, _ = net.mask_decoder(
+                                image_embeddings=imge,
+                                image_pe=net.prompt_encoder.get_dense_pe(), 
+                                sparse_prompt_embeddings=se,
+                                dense_prompt_embeddings=de, 
+                                multimask_output=False,
+                            )
+                        elif args.net == "efficient_sam":
+                            se = se.view(
+                                se.shape[0],
+                                1,
+                                se.shape[1],
+                                se.shape[2],
+                            )
+                            pred, _ = net.mask_decoder(
+                                image_embeddings=imge,
+                                image_pe=net.prompt_encoder.get_dense_pe(), 
+                                sparse_prompt_embeddings=se,
+                                multimask_output=False,
+                            )
+
+                        # Resize to the ordered output size
+                        pred = F.interpolate(pred,size=(args.out_size,args.out_size))
+                        tot += lossfunc(pred, masks)
 
                     '''vis images'''
                     if ind % args.vis == 0:

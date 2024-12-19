@@ -53,8 +53,8 @@ def get_dataloader(args):
     
     elif args.dataset == 'busi':
         '''busi data'''
-        busi_train_dataset = BUSI(args, args.data_path, transform = transform_train, transform_msk= transform_train_seg, mode = 'train',prompt_source = 'gt')
-        busi_test_dataset = BUSI(args, args.data_path, transform = transform_test, transform_msk= transform_test_seg, mode = 'test',prompt_source = 'gt')
+        busi_train_dataset = BUSI(args, args.data_path, transform = transform_train, transform_msk= transform_train_seg, mode = 'train',prompt_source = 'gt',prompt = args.prompt_type)
+        busi_test_dataset = BUSI(args, args.data_path, transform = transform_test, transform_msk= transform_test_seg, mode = 'test',prompt_source = 'gt',prompt = args.prompt_type)
 
         nice_train_loader = DataLoader(busi_train_dataset, batch_size=args.b, shuffle=True, num_workers=8, pin_memory=True)
         nice_test_loader = DataLoader(busi_test_dataset, batch_size=args.b, shuffle=False, num_workers=8, pin_memory=True)

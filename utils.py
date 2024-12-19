@@ -1259,7 +1259,7 @@ def rect_box(prompt):
         x_min, y_min = np.min(white_pixels, axis=0)
         x_max, y_max = np.max(white_pixels, axis=0)
     else:
-        # print("invalid mask")
-        return np.array([0,0,prompt.shape[1],prompt.shape[0]])
+        input_box = np.array([prompt.shape[1]//4, prompt.shape[0]//4, prompt.shape[1]*3/4, prompt.shape[0]*3/4])  # note that is (y,x)
+        return input_box
     input_box = np.array([y_min, x_min, y_max, x_max])  # note that is (y,x)
     return input_box

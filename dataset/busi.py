@@ -52,8 +52,14 @@ class BUSI(Dataset):
 
         if self.prompt == 'click':
             point_label, pt = random_click(np.array(prompt_image) / 255, point_label)   
+            box_cup = np.array([0,0,0,0])
         elif self.prompt == 'box':
-            pt = rect_box(np.array(prompt_image) / 255)
+            pt = np.array([0,0])
+            prompt_image_np = np.array(prompt_image)
+            box_cup = rect_box(prompt_image_np)
+        else:
+            pt =np.array([0,0])
+            box_cup = np.array([0,0,0,0])
 
         if self.transform:
             state = torch.get_rng_state()
@@ -74,5 +80,6 @@ class BUSI(Dataset):
             'pt_image':prompt_image,
             'p_label':point_label,
             'pt':pt,
+            'box':box_cup,
             'image_meta_dict':image_meta_dict,
         }
