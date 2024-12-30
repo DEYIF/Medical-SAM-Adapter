@@ -144,7 +144,10 @@ def _build_sam(
         
     if checkpoint is not None:
         with open(checkpoint, "rb") as f:
-            state_dict = torch.load(f)
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            state_dict = torch.load(f, map_location=device)
+
+
             
         # Create a new state dictionary with only the parameters that exist in the model
         new_state_dict = {k: v for k, v in state_dict.items() if k in sam.state_dict() and sam.state_dict()[k].shape == v.shape}

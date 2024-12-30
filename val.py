@@ -36,12 +36,18 @@ import function
 
 def main():
     args = cfg.parse_args()
+    print(args)
     if args.dataset == 'refuge' or args.dataset == 'refuge2':
         args.data_path = '../dataset'
 
-    GPUdevice = torch.device('cuda', args.gpu_device)
+    use_gpu = not args.no_gpu   # if set -no_gpu, it will set use_gpu to False
 
-    net = get_network(args, args.net, use_gpu=args.gpu, gpu_device=GPUdevice, distribution = args.distributed)
+    if use_gpu == True:
+        GPUdevice = torch.device('cuda', args.gpu_device)
+    else:
+        GPUdevice = torch.device('cpu')
+
+    net = get_network(args, args.net, use_gpu, gpu_device=GPUdevice, distribution = args.distributed)
 
 
     if args.weights != 0:
@@ -51,7 +57,10 @@ def main():
         assert os.path.exists(args.weights)
         checkpoint_file = os.path.join(args.weights)
         assert os.path.exists(checkpoint_file)
-        loc = 'cuda:{}'.format(args.gpu_device)
+        if use_gpu:
+            loc = 'cuda:{}'.format(args.gpu_device)
+        else:
+            loc = 'cpu'
         checkpoint = torch.load(checkpoint_file, map_location=loc)
         start_epoch = checkpoint['epoch']
         best_tol = checkpoint['best_tol']

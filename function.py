@@ -43,7 +43,8 @@ from utils import *
 args = cfg.parse_args()
 
 GPUdevice = torch.device('cuda', args.gpu_device)
-pos_weight = torch.ones([1]).cuda(device=GPUdevice)*2
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+pos_weight = torch.ones([1]).to(device) * 2
 criterion_G = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 seed = torch.randint(1,11,(args.b,7))
 
@@ -223,6 +224,7 @@ def train_sam(args, net: nn.Module, optimizer, train_loader,
 
 def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
      # eval mode
+    use_gpu = not args.no_gpu
     net.eval()
 
     mask_type = torch.float32
@@ -232,7 +234,10 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
     tot = 0
     hard = 0
     threshold = (0.1, 0.3, 0.5, 0.7, 0.9)
-    GPUdevice = torch.device('cuda:' + str(args.gpu_device))
+    if use_gpu:
+        GPUdevice = torch.device('cuda:' + str(args.gpu_device))
+    else:
+        GPUdevice = torch.device('cpu') 
     device = GPUdevice
 
     if args.thd:

@@ -79,6 +79,7 @@ device = torch.device('cuda', args.gpu_device)
 def get_network(args, net, use_gpu=True, gpu_device = 0, distribution = True):
     """ return given network
     """
+    device = torch.device("cuda" if use_gpu and torch.cuda.is_available() else "cpu")
 
     if net == 'sam':
         from models.sam import SamPredictor, sam_model_registry
@@ -109,13 +110,15 @@ def get_network(args, net, use_gpu=True, gpu_device = 0, distribution = True):
         print('the network name you have entered is not supported yet')
         sys.exit()
 
-    if use_gpu:
+    if use_gpu == True:
         #net = net.cuda(device = gpu_device)
         if distribution != 'none':
             net = torch.nn.DataParallel(net,device_ids=[int(id) for id in args.distributed.split(',')])
             net = net.to(device=gpu_device)
         else:
             net = net.to(device=gpu_device)
+    else:
+        net = net.to(device=torch.device('cpu'))
 
     return net
 
