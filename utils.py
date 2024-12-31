@@ -1032,6 +1032,15 @@ def vis_image(imgs, pred_masks, gt_masks, save_path, reverse = False, points = N
                 img01 = img255 / 255
                 # torchvision.utils.save_image(img01, save_path + "_boxes.png")
                 imgs[i, :] = img01
+
+                # 修复 pt_images 的操作
+                ptimg255 = (pt_images[i] * 255).byte()
+                ptimg255 = torchvision.utils.draw_bounding_boxes(ptimg255, boxes[i].reshape(-1, 4), colors="red")
+                ptimg01 = ptimg255 / 255
+                
+                # 确保连续性并避免共享内存问题
+                pt_images = pt_images.contiguous()  # 确保 pt_images 是连续的
+                pt_images[i, :] = ptimg01.clone().contiguous()  # 克隆并确保连续
         
         if pt_images is not None:
             pt_images = torchvision.transforms.Resize((h,w))(pt_images)
@@ -1256,13 +1265,14 @@ def random_box(multi_rater):
 
 def rect_box(prompt):
     # find all white pixels
-    white_pixels = np.column_stack(np.where(prompt == 1))
+    
+    white_pixels = np.column_stack(np.where(prompt == 255))
     # find the boundary
     if len(white_pixels) > 0:
         x_min, y_min = np.min(white_pixels, axis=0)
         x_max, y_max = np.max(white_pixels, axis=0)
     else:
-        input_box = np.array([prompt.shape[1]//4, prompt.shape[0]//4, prompt.shape[1]*3/4, prompt.shape[0]*3/4])  # note that is (y,x)
+        input_box = np.array([prompt.shape[1]/8, prompt.shape[0]/8, prompt.shape[1]*7/8, prompt.shape[0]*7/8])  # note that is (y,x)
         return input_box
     input_box = np.array([y_min, x_min, y_max, x_max])  # note that is (y,x)
     return input_box

@@ -36,7 +36,7 @@ import function
 
 def main():
     args = cfg.parse_args()
-    print(args)
+    
     if args.dataset == 'refuge' or args.dataset == 'refuge2':
         args.data_path = '../dataset'
 

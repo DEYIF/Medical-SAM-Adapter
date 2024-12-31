@@ -301,6 +301,7 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
                     masks = torchvision.transforms.Resize((args.out_size,args.out_size))(masks)
                 
                 showp = pt
+                showbox = box
 
                 mask_type = torch.float32
                 ind += 1
@@ -319,7 +320,8 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
                 if args.prompt_type == 'box':
                     # 将 box_cup 转换为 PyTorch 张量，并转移到指定的 GPU 设备
                     box_torch = torch.as_tensor(box, dtype=torch.float, device=GPUdevice)
-
+                    # if(len(point_labels.shape)==1): # only one box prompt:
+                    showbox = showbox[None, None, :]
                     # 如果需要将其转换为 [1, 1, 4] 形状（假设只有一个 box 坐标）
                     box_torch = box_torch[None, None, :]  # 维度变为 [1, 1, 4]
 
@@ -435,7 +437,10 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
                             img_name = na.split('/')[-1].split('.')[0]
                             namecat = namecat + img_name + '+'
                         if pt_imagesw is not None:
-                            vis_image(imgs,pred,masks, os.path.join(args.path_helper['sample_path'], namecat+'epoch+' +str(epoch) + '.jpg'), reverse=False, points=showp, pt_images=pt_images)
+                            if args.prompt_type == 'click':
+                                vis_image(imgs,pred,masks, os.path.join(args.path_helper['sample_path'], namecat+'epoch+' +str(epoch) + '.jpg'), reverse=False, points=showp, pt_images=pt_images)
+                            elif args.prompt_type == 'box':
+                                vis_image(imgs,pred,masks, os.path.join(args.path_helper['sample_path'], namecat+'epoch+' +str(epoch) + '.jpg'), reverse=False, boxes = showbox, pt_images=pt_images)
                         else:
                             vis_image(imgs,pred, masks, os.path.join(args.path_helper['sample_path'], namecat+'epoch+' +str(epoch) + '.jpg'), reverse=False, points=showp)
                     
