@@ -10,7 +10,7 @@ from utils import random_box, random_click, rect_box
 
 
 class BUSI(Dataset):
-    def __init__(self, args, data_path , transform = None, transform_msk = None, mode = 'train',prompt = 'click', prompt_source = 'gt', plane = False):
+    def __init__(self, args, data_path , transform = None, transform_msk = None, mode = 'test',prompt = 'click', prompt_source = 'gt', plane = False):
 
         self.prompt_source = prompt_source
         if self.prompt_source == 'gt':
@@ -51,7 +51,9 @@ class BUSI(Dataset):
         prompt_image = prompt_image.resize(newsize)
 
         if self.prompt == 'click':
-            point_label, pt = random_click(np.array(prompt_image) / 255, point_label)   
+            point_label, pt = random_click(np.array(prompt_image) / 255, point_label) 
+            # 这里改成不是随机选点，而是选中心的点
+            #   
             box_cup = np.array([0,0,0,0])
         elif self.prompt == 'box':
             pt = np.array([0,0])
