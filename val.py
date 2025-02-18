@@ -107,8 +107,8 @@ def main():
     logger.info("Starting evaluation...")
 
     if args.dataset != 'REFUGE':
-        tol, (eiou, edice) = function.validation_sam(args, nice_test_loader, start_epoch, net, writer)
-        logger.info(f'Evaluation completed. Total score: {tol}, IOU: {eiou}, DICE: {edice}.')
+        tol, (eiou, edice, variou, vardice) = function.validation_sam(args, nice_test_loader, start_epoch, net, writer)
+        logger.info(f'Evaluation completed. Total score: {tol}, IOU: {eiou}, DICE: {edice}, IOU Variance: {variou}, DICE Variance: {vardice}.')
     else:
         tol, (eiou_cup, eiou_disc, edice_cup, edice_disc) = function.validation_sam(args, nice_test_loader, start_epoch, net, writer)
         logger.info(

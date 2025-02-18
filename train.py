@@ -39,9 +39,13 @@ def main():
 
     args = cfg.parse_args()
 
-    GPUdevice = torch.device('cuda', args.gpu_device)
+    use_gpu = not args.no_gpu   # if set -no_gpu, it will set use_gpu to False
+    if use_gpu == True:
+        GPUdevice = torch.device('cuda', args.gpu_device)
+    else:
+        GPUdevice = torch.device('cpu')
 
-    net = get_network(args, args.net, use_gpu=args.gpu, gpu_device=GPUdevice, distribution = args.distributed)
+    net = get_network(args, args.net, use_gpu=use_gpu, gpu_device=GPUdevice, distribution = args.distributed)
     if args.pretrain:
         weights = torch.load(args.pretrain)
         net.load_state_dict(weights,strict=False)
@@ -94,7 +98,7 @@ def main():
     best_tol = 1e4
     best_dice = 0.0
 
-    for epoch in range(settings.EPOCH):
+    for epoch in range(start_epoch, settings.EPOCH):
 
         if epoch and epoch < 5:
             if args.dataset != 'REFUGE':
@@ -136,7 +140,7 @@ def main():
                 'optimizer': optimizer.state_dict(),
                 'best_tol': best_dice,
                 'path_helper': args.path_helper,
-            }, is_best, args.path_helper['ckpt_path'], filename="best_dice_checkpoint.pth")
+            }, is_best, args.path_helper['ckpt_path'], filename = f"best_dice_checkpoint_epoch{epoch + 1}.pth")
             else:
                 is_best = False
 

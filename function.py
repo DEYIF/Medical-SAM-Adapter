@@ -230,6 +230,7 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
     mask_type = torch.float32
     n_val = len(val_loader)  # the number of batch
     ave_res, mix_res = (0,0,0,0), (0,)*args.multimask_output*2
+    mix_res_sq = (0,)*args.multimask_output*2    # 累加 IoU² 和 Dice²
     rater_res = [(0,0,0,0) for _ in range(6)]
     tot = 0
     hard = 0
@@ -447,13 +448,20 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
 
                     temp = eval_seg(pred, masks, threshold)
                     mix_res = tuple([sum(a) for a in zip(mix_res, temp)])
+                     # 累加 IoU² 和 Dice²
+                    mix_res_sq = tuple(sum(a) for a in zip(mix_res_sq, (temp[0]**2, temp[1]**2)))
 
             pbar.update()
+    # 计算均值
+    iou_mean, dice_mean = tuple(a / n_val for a in mix_res)
+    # 计算方差: Var(X) = E(X²) - E(X)²
+    iou_var = (mix_res_sq[0] / n_val) - (iou_mean ** 2)
+    dice_var = (mix_res_sq[1] / n_val) - (dice_mean ** 2)
 
     if args.evl_chunk:
         n_val = n_val * (imgsw.size(-1) // evl_ch)
 
-    return tot/ n_val , tuple([a/n_val for a in mix_res])
+    return tot / n_val, (iou_mean, dice_mean, iou_var, dice_var)
 
 def transform_prompt(coord,label,h,w):
     coord = coord.transpose(0,1)
