@@ -37,7 +37,10 @@ class BUSI(Dataset):
                             for f in os.listdir(os.path.join(data_path, mode, 'images'))}
         self.label_dict = {os.path.splitext(f)[0]: os.path.join(data_path, mode, 'labels', f)
                             for f in os.listdir(os.path.join(data_path, mode, 'labels'))}
-        self.prompt_dict = {os.path.splitext(f)[0]: os.path.join(data_path, mode, 'prompts', f)
+        if self.prompt == 'random_click':
+            self.prompt_dict = self.image_dict
+        else:
+            self.prompt_dict = {os.path.splitext(f)[0]: os.path.join(data_path, mode, 'prompts', f)
                             for f in os.listdir(os.path.join(data_path, mode, 'prompts'))}
 
         # 获取交集的键，确保索引时不会出错
@@ -75,13 +78,17 @@ class BUSI(Dataset):
 
         if self.prompt == 'click':
             # point_label, pt = random_click(np.array(prompt_image) / 255, point_label) 
-            # 这里改成不是随机选点，而是选中心的点
             point_label, pt = central_click(np.array(prompt_image) / 255, point_label)
             box_cup = np.array([0,0,0,0])
         elif self.prompt == 'box':
             pt = np.array([0,0])
             prompt_image_np = np.array(prompt_image)
             box_cup = rect_box(prompt_image_np)
+        elif self.prompt == 'random_click':
+            # Randomly select a point from the image
+            point_label, pt = random_click(np.array(prompt_image) / 255, point_label) 
+            box_cup = np.array([0,0,0,0])
+
         else:
             pt =np.array([0,0])
             box_cup = np.array([0,0,0,0])

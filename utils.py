@@ -7,6 +7,7 @@ import collections
 import logging
 import math
 import os
+import csv
 import pathlib
 import random
 import shutil
@@ -968,7 +969,7 @@ def hook_model(model, image_f):
 
     return hook
 
-def vis_image(imgs, pred_masks, gt_masks, save_path, reverse = False, points = None, boxes = None, pt_images = None):
+def vis_image(imgs, pred_masks, gt_masks, threshold, save_path, reverse = False, points = None, boxes = None, pt_images = None):
     
     b,c,h,w = pred_masks.size()
     dev = pred_masks.get_device()
@@ -1007,6 +1008,19 @@ def vis_image(imgs, pred_masks, gt_masks, save_path, reverse = False, points = N
         pred_masks = pred_masks[:,0,:,:].unsqueeze(1).expand(b,3,h,w)
         gt_masks = gt_masks[:,0,:,:].unsqueeze(1).expand(b,3,h,w)
         pt_images = pt_images[:,0,:,:].unsqueeze(1).expand(b,3,h,w)
+
+        # 如果提供了阈值列表，则计算多个二值化结果
+        if threshold is not None:
+            thresh_outputs = []
+            for thresh in threshold:
+                # 对预测掩膜进行二值化处理
+                bin_mask = (pred_masks > thresh).float()
+                bin_mask_exp = bin_mask[:, 0, :, :].unsqueeze(1).expand(b, 3, h, w)
+                thresh_outputs.append(bin_mask_exp)
+        thresh_outputs = torch.stack(thresh_outputs, dim=0)
+        # 合并第一个两个维度，得到形状 (num_threshold*row_num, 3, h, w)
+        thresh_tensor = thresh_outputs.view(-1, 3, h, w)
+
         if points != None:
             for i in range(b):
                 if args.thd:
@@ -1046,9 +1060,9 @@ def vis_image(imgs, pred_masks, gt_masks, save_path, reverse = False, points = N
             pt_images = torchvision.transforms.Resize((h,w))(pt_images)
             if pt_images.size(1) == 1:
                 pt_images = pt_images[:,0,:,:].unsqueeze(1).expand(b,3,h,w)
-            tup = (imgs[:row_num,:,:,:], pt_images[:row_num,:,:,:], pred_masks[:row_num,:,:,:], gt_masks[:row_num,:,:,:])
+            tup = (imgs[:row_num,:,:,:], pt_images[:row_num,:,:,:], pred_masks[:row_num,:,:,:], thresh_tensor[:len(threshold), :, :, :], gt_masks[:row_num,:,:,:])
         else:
-            tup = (imgs[:row_num,:,:,:], pred_masks[:row_num,:,:,:], gt_masks[:row_num,:,:,:])
+            tup = (imgs[:row_num,:,:,:], pred_masks[:row_num,:,:,:], thresh_tensor[:len(threshold), :, :, :], gt_masks[:row_num,:,:,:])
 
         # compose = torch.cat((imgs[:row_num,:,:,:],pred_disc[:row_num,:,:,:], pred_cup[:row_num,:,:,:], gt_disc[:row_num,:,:,:], gt_cup[:row_num,:,:,:]),0)
         compose = torch.cat(tup,0)
@@ -1056,7 +1070,7 @@ def vis_image(imgs, pred_masks, gt_masks, save_path, reverse = False, points = N
 
     return
 
-def eval_seg(pred,true_mask_p,threshold):
+def eval_seg(pred,true_mask_p,threshold,img_name,individual_metrics_file):
     '''
     threshold: a int or a tuple of int
     masks: [b,2,h,w]
@@ -1111,16 +1125,25 @@ def eval_seg(pred,true_mask_p,threshold):
             vpred = (pred > th).float()
             vpred_cpu = vpred.cpu()
             disc_pred = vpred_cpu[:,0,:,:].numpy().astype('int32')
-
             disc_mask = gt_vmask_p [:,0,:,:].squeeze(1).cpu().numpy().astype('int32')
-    
+
+            individual_dice = dice_coeff(vpred[:,0,:,:], gt_vmask_p[:,0,:,:]).item()
+            individual_iou = iou(disc_pred,disc_mask)
+
             '''iou for numpy'''
-            eiou += iou(disc_pred,disc_mask)
+            eiou += individual_iou
 
             '''dice for torch'''
-            edice += dice_coeff(vpred[:,0,:,:], gt_vmask_p[:,0,:,:]).item()
-            
-        return eiou / len(threshold), edice / len(threshold)
+            edice += individual_dice
+        average_iou = eiou / len(threshold)
+        average_dice = edice / len(threshold)
+        # save iou and dice for every image
+        with open(individual_metrics_file, mode='a', newline='') as csv_file:
+            row = [img_name, average_dice, average_iou]
+            writer = csv.writer(csv_file)
+            writer.writerow(row) 
+
+        return average_iou, average_dice
 
 # @objectives.wrap_objective()
 def dot_compare(layer, batch=1, cossim_pow=0):
@@ -1196,12 +1219,8 @@ def calculate_gradient_penalty(netD, real_images, fake_images):
 
 
 def random_click(mask, point_labels = 1):
-    # check if all masks are black
-    max_label = max(set(mask.flatten()))
-    if max_label == 0:
-        point_labels = max_label
-    # max agreement position
-    indices = np.argwhere(mask == max_label) 
+    # in this case, prompt image is the original image
+    indices = np.argwhere(mask >= 0) 
     return point_labels, indices[np.random.randint(len(indices))]
 
 def central_click(mask, point_labels = 1):

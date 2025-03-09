@@ -1,6 +1,7 @@
 
 import argparse
 import os
+import csv
 import shutil
 import sys
 import tempfile
@@ -35,6 +36,7 @@ import pytorch_ssim
 #from models.discriminatorlayer import discriminator
 from conf import settings
 from utils import *
+import cv2
 
 # from lucent.modelzoo.util import get_model_layers
 # from lucent.optvis import render, param, transform, objectives
@@ -230,11 +232,13 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
     mask_type = torch.float32
     n_val = len(val_loader)  # the number of batch
     ave_res, mix_res = (0,0,0,0), (0,)*args.multimask_output*2
+    tot_global = 0 # global sum metric, for return global loss and mean metric
     mix_res_sq = (0,)*args.multimask_output*2    # 累加 IoU² 和 Dice²
     rater_res = [(0,0,0,0) for _ in range(6)]
     tot = 0
     hard = 0
-    threshold = (0.1, 0.3, 0.5, 0.7, 0.9)
+    # threshold = (0.1, 0.3, 0.5, 0.7, 0.9)
+    threshold = (0.3, 0.5, 0.7)
     if use_gpu:
         GPUdevice = torch.device('cuda:' + str(args.gpu_device))
     else:
@@ -246,6 +250,13 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
     else:
         lossfunc = criterion_G
 
+    # define csv file's path
+    csv_folder = args.path_helper['log_path']
+    individual_metrics_file = os.path.join(csv_folder, "individual_metrics.csv")
+    # write title row
+    with open(individual_metrics_file, mode='w', newline='') as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(["Filename", "Dice", "IoU"])
     # Clarify: pt means prompt point, pt_images means prompt image, box means prompt box
     with tqdm(total=n_val, desc='Validation round', unit='batch', leave=False) as pbar:
         for ind, pack in enumerate(val_loader):
@@ -332,10 +343,11 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
                     #true_mask_ave = cons_tensor(true_mask_ave)
                 imgs = imgs.to(dtype = mask_type,device = GPUdevice)
                 
+
                 '''test'''
                 with torch.no_grad():
                     imge= net.image_encoder(imgs)
-                    if args.prompt_type == 'click':
+                    if args.prompt_type == 'click' or args.prompt_type == 'random_click':
                         if args.net == 'sam' or args.net == 'mobile_sam':
                             se, de = net.prompt_encoder(
                                 points=pt,
@@ -431,6 +443,7 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
                         pred = F.interpolate(pred,size=(args.out_size,args.out_size))
                         tot += lossfunc(pred, masks)
 
+
                     '''vis images'''
                     if ind % args.vis == 0:
                         namecat = 'Test'
@@ -438,15 +451,39 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
                             img_name = na.split('/')[-1].split('.')[0]
                             namecat = namecat + img_name + '+'
                         if pt_imagesw is not None:
-                            if args.prompt_type == 'click':
-                                vis_image(imgs,pred,masks, os.path.join(args.path_helper['sample_path'], namecat+'epoch+' +str(epoch) + '.jpg'), reverse=False, points=showp, pt_images=pt_images)
+                            if args.prompt_type == 'click' or args.prompt_type == 'random_click':
+                                vis_image(imgs,pred,masks, threshold, os.path.join(args.path_helper['sample_path'], namecat+'epoch+' +str(epoch) + '.jpg'), reverse=False, points=showp, pt_images=pt_images)
                             elif args.prompt_type == 'box':
-                                vis_image(imgs,pred,masks, os.path.join(args.path_helper['sample_path'], namecat+'epoch+' +str(epoch) + '.jpg'), reverse=False, boxes = showbox, pt_images=pt_images)
+                                vis_image(imgs,pred,masks, threshold, os.path.join(args.path_helper['sample_path'], namecat+'epoch+' +str(epoch) + '.jpg'), reverse=False, boxes = showbox, pt_images=pt_images)
                         else:
-                            vis_image(imgs,pred, masks, os.path.join(args.path_helper['sample_path'], namecat+'epoch+' +str(epoch) + '.jpg'), reverse=False, points=showp)
-                    
+                            vis_image(imgs,pred, masks, threshold, os.path.join(args.path_helper['sample_path'], namecat+'epoch+' +str(epoch) + '.jpg'), reverse=False, points=showp)
 
-                    temp = eval_seg(pred, masks, threshold)
+                        # 保存预测掩码为单独的文件
+                        for b_idx in range(pred.shape[0]):  # 遍历批次中的每个样本
+                            # 创建唯一的文件名
+                            mask_name = f"{namecat}_epoch{epoch}_idx{ind}.png"
+                            mask_path = os.path.join(args.path_helper['sample_path'], 'masks', mask_name)
+                            
+                            # 确保目录存在
+                            os.makedirs(os.path.join(args.path_helper['sample_path'], 'masks'), exist_ok=True)
+                            
+                            # 将预测掩码转换为numpy数组并保存
+                            # Method 0: binary
+                            pred_mask = (pred[b_idx, 0].cpu().numpy() > 0.5).astype(np.uint8) * 255
+
+                            # Method 1: original
+                            # pred_mask = (pred[b_idx, 0].cpu().numpy()).astype(np.uint8) * 255
+
+                            # Method 2: Sigmoid (not working)
+                            # if torch.max(pred[b_idx, 0]) > 1 or torch.min(pred[b_idx, 0]) < 0:
+                            #     pred[b_idx, 0] = torch.sigmoid(pred[b_idx, 0])
+                            # pred_mask = (pred[b_idx, 0].cpu().numpy()).astype(np.uint8) * 255
+
+                            cv2.imwrite(mask_path, pred_mask)
+                    
+                    for na in name[:2]:
+                        img_name = na.split('/')[-1].split('.')[0]
+                    temp = eval_seg(pred, masks, threshold, img_name, individual_metrics_file)
                     mix_res = tuple([sum(a) for a in zip(mix_res, temp)])
                      # 累加 IoU² 和 Dice²
                     mix_res_sq = tuple(sum(a) for a in zip(mix_res_sq, (temp[0]**2, temp[1]**2)))

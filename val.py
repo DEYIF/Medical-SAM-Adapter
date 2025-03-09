@@ -85,15 +85,20 @@ def main():
         # load params
     else:
         new_state_dict = state_dict
-    
-    net.load_state_dict(new_state_dict)
+    if args.weights != 0:
+        net.load_state_dict(new_state_dict)
+    else:
+        net.load_state_dict(new_state_dict, strict=False)
     writer = SummaryWriter(log_dir=os.path.join(
             settings.LOG_DIR, args.net, settings.TIME_NOW))
 
     args.path_helper = set_log_dir('logs', args.exp_name)
     logger = create_logger(args.path_helper['log_path'])
     logger.info(args)
-    print(f'=> loaded checkpoint {checkpoint_file} (epoch {start_epoch})')
+    if args.weights!= 0:
+        print(f'=> loaded checkpoint {checkpoint_file} (epoch {start_epoch})')
+    else:
+        print(f'=> loaded checkpoint {checkpoint_file}')
 
 
     '''segmentation data'''
