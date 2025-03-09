@@ -1223,16 +1223,51 @@ def random_click(mask, point_labels = 1):
     indices = np.argwhere(mask >= 0) 
     return point_labels, indices[np.random.randint(len(indices))]
 
-def central_click(mask, point_labels = 1):
-    # check if all masks are black
-    max_label = max(set(mask.flatten()))
-    if max_label == 0:
-        point_labels = max_label
-    # max agreement position
-    indices = np.argwhere(mask == max_label)
-    return point_labels, indices[len(indices)//2]
+# def central_click(mask, point_labels = 1):
+#     # check if all masks are black
+#     max_label = max(set(mask.flatten()))
+#     if max_label == 0:
+#         point_labels = max_label
+#     # max agreement position
+#     indices = np.argwhere(mask == max_label)
+#     return point_labels, indices[len(indices)//2]
 
-
+from skimage.measure import label, regionprops
+def central_click(mask, point_labels=1):
+    # 如果整个 mask 都是黑色，则直接返回默认点
+    if np.all(mask == 0):
+        return 0, np.array([0, 0])
+    
+    # 假设白色区域的像素值为 mask 中的最大值
+    white_val = np.max(mask)
+    white_mask = (mask == white_val)
+    
+    # 对白色区域进行连通区域分析
+    labeled_mask = label(white_mask)
+    regions = regionprops(labeled_mask)
+    
+    # 如果没有检测到连通区域（一般不应该出现），则退化为所有白色像素的均值
+    if len(regions) == 0:
+        indices = np.argwhere(white_mask)
+        center = np.mean(indices, axis=0)
+        center = np.round(center).astype(int)
+        return point_labels, center
+    
+    # 选择面积最大的白色区域
+    largest_region = max(regions, key=lambda x: x.area)
+    
+    # 计算该区域的几何中心（返回的是浮点数坐标）
+    centroid = largest_region.centroid  # 格式为 (row, col)
+    centroid_int = np.array(centroid).astype(int)
+    
+    # 确保选取的中心点确实属于该区域：
+    # 在区域的所有像素中找出距离几何中心最近的像素作为最终返回点
+    coords = largest_region.coords  # 数组，每行对应一个 (row, col)
+    dists = np.linalg.norm(coords - centroid_int, axis=1)
+    nearest_index = np.argmin(dists)
+    center = coords[nearest_index]
+    
+    return point_labels, center
 
 def generate_click_prompt(img, msk, pt_label = 1):
     # return: prompt, prompt mask
