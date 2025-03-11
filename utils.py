@@ -1340,3 +1340,9 @@ def rect_box(prompt):
         return input_box
     input_box = np.array([y_min, x_min, y_max, x_max])  # note that is (y,x)
     return input_box
+
+def central_box(prompt):
+    H, W = prompt.shape[:2]
+    # 给图像边界留一定 margin（例如 1/8 的宽度和高度）
+    input_box = np.array([H//8, W//8, H*7//8, W*7//8])
+    return input_box

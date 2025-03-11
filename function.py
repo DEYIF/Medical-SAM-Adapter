@@ -269,7 +269,7 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
             boxw = None
             point_labels = pack.get('p_label', None)
             
-            if args.prompt_type == 'box':
+            if args.prompt_type == 'box' or args.prompt_type == 'central_box':
                 boxw = pack['box']
             
             if 'pt' not in pack or args.thd:
@@ -329,7 +329,7 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
                         coords_torch, labels_torch, showp = coords_torch[None, :, :], labels_torch[None, :], showp[None, :, :]
                     pt = (coords_torch, labels_torch)
 
-                if args.prompt_type == 'box':
+                if args.prompt_type == 'box' or args.prompt_type == 'central_box':
                     # 将 box_cup 转换为 PyTorch 张量，并转移到指定的 GPU 设备
                     box_torch = torch.as_tensor(box, dtype=torch.float, device=GPUdevice)
                     # if(len(point_labels.shape)==1): # only one box prompt:
@@ -395,7 +395,7 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
                         pred = F.interpolate(pred,size=(args.out_size,args.out_size))
                         tot += lossfunc(pred, masks)
 
-                    if args.prompt_type == 'box':
+                    if args.prompt_type == 'box' or args.prompt_type == 'central_box':
                         if args.net == 'sam' or args.net == 'mobile_sam':
                             se, de = net.prompt_encoder(
                                 points=None,
@@ -453,7 +453,7 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
                         if pt_imagesw is not None:
                             if args.prompt_type == 'click' or args.prompt_type == 'random_click':
                                 vis_image(imgs,pred,masks, threshold, os.path.join(args.path_helper['sample_path'], namecat+'epoch+' +str(epoch) + '.jpg'), reverse=False, points=showp, pt_images=pt_images)
-                            elif args.prompt_type == 'box':
+                            elif args.prompt_type == 'box' or args.prompt_type == 'central_box':
                                 vis_image(imgs,pred,masks, threshold, os.path.join(args.path_helper['sample_path'], namecat+'epoch+' +str(epoch) + '.jpg'), reverse=False, boxes = showbox, pt_images=pt_images)
                         else:
                             vis_image(imgs,pred, masks, threshold, os.path.join(args.path_helper['sample_path'], namecat+'epoch+' +str(epoch) + '.jpg'), reverse=False, points=showp)

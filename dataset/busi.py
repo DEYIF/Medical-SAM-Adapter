@@ -6,7 +6,7 @@ import torch
 from PIL import Image
 from torch.utils.data import Dataset
 
-from utils import random_box, random_click, rect_box, central_click
+from utils import random_box, random_click, rect_box, central_click, central_box
 
 
 class BUSI(Dataset):
@@ -37,7 +37,7 @@ class BUSI(Dataset):
                             for f in os.listdir(os.path.join(data_path, mode, 'images'))}
         self.label_dict = {os.path.splitext(f)[0]: os.path.join(data_path, mode, 'labels', f)
                             for f in os.listdir(os.path.join(data_path, mode, 'labels'))}
-        if self.prompt == 'random_click':
+        if self.prompt == 'random_click' or self.prompt == 'central_box':
             self.prompt_dict = self.image_dict
         else:
             self.prompt_dict = {os.path.splitext(f)[0]: os.path.join(data_path, mode, 'prompts', f)
@@ -88,7 +88,11 @@ class BUSI(Dataset):
             # Randomly select a point from the image
             point_label, pt = random_click(np.array(prompt_image) / 255, point_label) 
             box_cup = np.array([0,0,0,0])
-
+        elif self.prompt == 'central_box':
+            pt = np.array([0,0])
+            prompt_image_np = np.array(prompt_image)
+            box_cup = central_box(prompt_image_np)
+        
         else:
             pt =np.array([0,0])
             box_cup = np.array([0,0,0,0])
