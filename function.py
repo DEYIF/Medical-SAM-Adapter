@@ -22,6 +22,8 @@ from monai.inferers import sliding_window_inference
 from monai.losses import DiceCELoss
 from monai.transforms import AsDiscrete
 from PIL import Image
+from PIL import ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 from skimage import io
 from sklearn.metrics import accuracy_score, confusion_matrix, roc_auc_score
 from tensorboardX import SummaryWriter
@@ -70,7 +72,7 @@ def train_sam(args, net: nn.Module, optimizer, train_loader,
     # train mode
     net.train()
     optimizer.zero_grad()
-
+    threshold = (0.3, 0.5, 0.7)
     epoch_loss = 0
     GPUdevice = torch.device('cuda:' + str(args.gpu_device))
 
@@ -218,7 +220,7 @@ def train_sam(args, net: nn.Module, optimizer, train_loader,
                     namecat = 'Train'
                     for na in name[:2]:
                         namecat = namecat + na.split('/')[-1].split('.')[0] + '+'
-                    vis_image(imgs,pred,masks, os.path.join(args.path_helper['sample_path'], namecat+'epoch+' +str(epoch) + '.jpg'), reverse=False, points=showp)
+                    vis_image(imgs,pred,masks, threshold, os.path.join(args.path_helper['sample_path'], namecat+'epoch+' +str(epoch) + '.jpg'), reverse=False, points=showp)
 
             pbar.update()
 
@@ -461,7 +463,7 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
                         # 保存预测掩码为单独的文件
                         for b_idx in range(pred.shape[0]):  # 遍历批次中的每个样本
                             # 创建唯一的文件名
-                            mask_name = f"{namecat}_epoch{epoch}_idx{ind}.png"
+                            mask_name = f"{img_name}.png"
                             mask_path = os.path.join(args.path_helper['sample_path'], 'masks', mask_name)
                             
                             # 确保目录存在

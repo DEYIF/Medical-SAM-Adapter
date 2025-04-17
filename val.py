@@ -62,18 +62,49 @@ def main():
         else:
             loc = 'cpu'
         checkpoint = torch.load(checkpoint_file, map_location=loc)
-        start_epoch = checkpoint['epoch']
-        best_tol = checkpoint['best_tol']
+        if 'epoch' in checkpoint:
+            start_epoch = checkpoint['epoch']
+            best_tol = checkpoint['best_tol']
 
         state_dict = checkpoint['state_dict']
     else :
         '''load pretrained model'''
+        start_epoch = 0
         checkpoint_file = os.path.join(args.sam_ckpt)
         assert os.path.exists(checkpoint_file)
         loc = 'cuda:{}'.format(args.gpu_device)
+        # checkpoint = torch.load(checkpoint_file, map_location=loc)
+        # state_dict = checkpoint
+        with open(checkpoint_file, "rb") as f:
+            state_dict = torch.load(f)
+            new_state_dict = {k: v for k, v in state_dict.items() if k in net.state_dict() and net.state_dict()[k].shape == v.shape}
+            net.load_state_dict(new_state_dict, strict = False)
+
+  
+
+    if args.adapter is not None:
+        # load task-specific adapter
+        adapter_path = args.adapter
+        checkpoint_file = os.path.join(adapter_path)
+        assert os.path.exists(checkpoint_file)
+        loc = 'cuda:{}'.format(args.gpu_device)
         checkpoint = torch.load(checkpoint_file, map_location=loc)
-        start_epoch = 0
-        state_dict = checkpoint
+
+        state_dict = checkpoint['state_dict']
+        # if args.distributed != 'none':
+        #     from collections import OrderedDict
+        #     new_state_dict = OrderedDict()
+        #     for k, v in state_dict.items():
+        #         # name = k[7:] # remove `module.`
+        #         name = 'module.' + k
+        #         new_state_dict[name] = v
+        #     # load params
+        # else:
+        #     new_state_dict = state_dict
+
+        # net.load_state_dict(new_state_dict,strict = False)
+        # print("The model has been adapted")
+    
 
     if args.distributed != 'none':
         from collections import OrderedDict
@@ -89,6 +120,7 @@ def main():
         net.load_state_dict(new_state_dict)
     else:
         net.load_state_dict(new_state_dict, strict=False)
+        # net.load_state_dict(new_state_dict)
     writer = SummaryWriter(log_dir=os.path.join(
             settings.LOG_DIR, args.net, settings.TIME_NOW))
 

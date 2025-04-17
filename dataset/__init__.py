@@ -19,7 +19,7 @@ from .segrap import SegRap
 from .stare import STARE
 from .toothfairy import ToothFairy
 from .wbc import WBC
-
+from .mixseg import MIXSEG
 
 def get_dataloader(args):
     transform_train = transforms.Compose([
@@ -66,6 +66,15 @@ def get_dataloader(args):
         # no train data in this dataset
         busiunet_train_dataset = BUSI(args, args.data_path, transform = transform_train, transform_msk= transform_train_seg, mode = 'test', prompt_source = 'unet', prompt = args.prompt_type)
         busiunet_test_dataset = BUSI(args, args.data_path, transform = transform_test, transform_msk= transform_test_seg, mode = 'test', prompt_source = 'unet', prompt = args.prompt_type)
+
+        nice_train_loader = DataLoader(busiunet_train_dataset, batch_size=args.b, shuffle=True, num_workers=8, pin_memory=True)
+        nice_test_loader = DataLoader(busiunet_test_dataset, batch_size=args.b, shuffle=False, num_workers=8, pin_memory=True)
+        '''end'''
+    
+    elif args.dataset == 'mixseg':
+        # prompted by U-Net
+        busiunet_train_dataset = MIXSEG(args, args.data_path, transform = transform_train, transform_msk= transform_train_seg, mode = 'train', prompt_source = 'unet', prompt = args.prompt_type)
+        busiunet_test_dataset = MIXSEG(args, args.data_path, transform = transform_test, transform_msk= transform_test_seg, mode = 'test', prompt_source = 'unet', prompt = args.prompt_type)
 
         nice_train_loader = DataLoader(busiunet_train_dataset, batch_size=args.b, shuffle=True, num_workers=8, pin_memory=True)
         nice_test_loader = DataLoader(busiunet_test_dataset, batch_size=args.b, shuffle=False, num_workers=8, pin_memory=True)

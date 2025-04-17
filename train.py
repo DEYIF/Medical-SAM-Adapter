@@ -53,6 +53,8 @@ def main():
     optimizer = optim.Adam(net.parameters(), lr=args.lr, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5) #learning rate decay
 
+    start_epoch = 0
+
     '''load pretrained model'''
     if args.weights != 0:
         print(f'=> resuming from {args.weights}')
@@ -102,8 +104,10 @@ def main():
 
         if epoch and epoch < 5:
             if args.dataset != 'REFUGE':
-                tol, (eiou, edice) = function.validation_sam(args, nice_test_loader, epoch, net, writer)
-                logger.info(f'Total score: {tol}, IOU: {eiou}, DICE: {edice} || @ epoch {epoch}.')
+                # tol, (eiou, edice) = function.validation_sam(args, nice_test_loader, epoch, net, writer)
+                tol, (eiou, edice, variou, vardice) = function.validation_sam(args, nice_test_loader, start_epoch, net, writer)
+                # logger.info(f'Total score: {tol}, IOU: {eiou}, DICE: {edice} || @ epoch {epoch}.')
+                logger.info(f'Evaluation completed. Total score: {tol}, IOU: {eiou}, DICE: {edice}, IOU Variance: {variou}, DICE Variance: {vardice}.')
             else:
                 tol, (eiou_cup, eiou_disc, edice_cup, edice_disc) = function.validation_sam(args, nice_test_loader, epoch, net, writer)
                 logger.info(f'Total score: {tol}, IOU_CUP: {eiou_cup}, IOU_DISC: {eiou_disc}, DICE_CUP: {edice_cup}, DICE_DISC: {edice_disc} || @ epoch {epoch}.')
@@ -118,7 +122,8 @@ def main():
         net.eval()
         if epoch and epoch % args.val_freq == 0 or epoch == settings.EPOCH-1:
             if args.dataset != 'REFUGE':
-                tol, (eiou, edice) = function.validation_sam(args, nice_test_loader, epoch, net, writer)
+                # tol, (eiou, edice) = function.validation_sam(args, nice_test_loader, epoch, net, writer)
+                tol, (eiou, edice, variou, vardice) = function.validation_sam(args, nice_test_loader, start_epoch, net, writer)
                 logger.info(f'Total score: {tol}, IOU: {eiou}, DICE: {edice} || @ epoch {epoch}.')
             else:
                 tol, (eiou_cup, eiou_disc, edice_cup, edice_disc) = function.validation_sam(args, nice_test_loader, epoch, net, writer)
