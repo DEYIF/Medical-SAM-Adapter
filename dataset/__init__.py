@@ -20,6 +20,7 @@ from .stare import STARE
 from .toothfairy import ToothFairy
 from .wbc import WBC
 from .mixseg import MIXSEG
+from .miccai import MICCAI
 
 def get_dataloader(args):
     transform_train = transforms.Compose([
@@ -78,6 +79,15 @@ def get_dataloader(args):
 
         nice_train_loader = DataLoader(busiunet_train_dataset, batch_size=args.b, shuffle=True, num_workers=8, pin_memory=True)
         nice_test_loader = DataLoader(busiunet_test_dataset, batch_size=args.b, shuffle=False, num_workers=8, pin_memory=True)
+        '''end'''
+
+    elif args.dataset == 'miccai':
+        '''miccai video data'''
+        miccai_train_dataset = MICCAI(args, args.data_path, transform = transform_train, transform_msk= transform_train_seg, mode = 'train', prompt = args.prompt_type)
+        miccai_test_dataset = MICCAI(args, args.data_path, transform = transform_test, transform_msk= transform_test_seg, mode = 'test', prompt = args.prompt_type)
+
+        nice_train_loader = DataLoader(miccai_train_dataset, batch_size=args.b, shuffle=True, num_workers=8, pin_memory=True)
+        nice_test_loader = DataLoader(miccai_test_dataset, batch_size=args.b, shuffle=False, num_workers=8, pin_memory=True)
         '''end'''
 
     elif args.dataset == 'decathlon':
@@ -253,6 +263,7 @@ def get_dataloader(args):
         nice_train_loader = DataLoader(dataset, batch_size=args.b, sampler=train_sampler, num_workers=8, pin_memory=True)
         nice_test_loader = DataLoader(dataset, batch_size=args.b, sampler=test_sampler, num_workers=8, pin_memory=True)
         '''end'''
+
 
     else:
         print("the dataset is not supported now!!!")

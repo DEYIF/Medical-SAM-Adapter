@@ -1,4 +1,3 @@
-
 import argparse
 import os
 import csv
@@ -462,12 +461,43 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
 
                         # 保存预测掩码为单独的文件
                         for b_idx in range(pred.shape[0]):  # 遍历批次中的每个样本
+                            # 从元数据中获取图像名称
+                            if isinstance(name, list) and len(name) > b_idx:
+                                img_name = name[b_idx].split('/')[-1].split('.')[0]
+                            elif 'filename_or_obj' in pack['image_meta_dict']:
+                                # 从元数据获取文件名
+                                filename = pack['image_meta_dict']['filename_or_obj']
+                                if isinstance(filename, list) and len(filename) > b_idx:
+                                    img_name = filename[b_idx]
+                                else:
+                                    img_name = filename
+                            
                             # 创建唯一的文件名
                             mask_name = f"{img_name}.png"
-                            mask_path = os.path.join(args.path_helper['sample_path'], 'masks', mask_name)
                             
-                            # 确保目录存在
-                            os.makedirs(os.path.join(args.path_helper['sample_path'], 'masks'), exist_ok=True)
+                            # 检查是否为MICCAI数据集，如果是，则按视频文件夹保存
+                            if args.dataset == 'miccai':
+                                # 从图像元数据中获取视频文件夹信息
+                                video_folder = pack['image_meta_dict']['video_folder']
+                                category = pack['image_meta_dict']['category']
+                                
+                                # 处理列表情况
+                                if isinstance(video_folder, list) and b_idx < len(video_folder):
+                                    video_folder = video_folder[b_idx]
+                                if isinstance(category, list) and b_idx < len(category):
+                                    category = category[b_idx]
+                                
+                                # 创建保存路径：masks/category/video_folder/
+                                mask_dir = os.path.join(args.path_helper['sample_path'], 'masks', category, video_folder)
+                                os.makedirs(mask_dir, exist_ok=True)
+                                
+                                mask_path = os.path.join(mask_dir, mask_name)
+                            else:
+                                # 原来的保存逻辑
+                                mask_path = os.path.join(args.path_helper['sample_path'], 'masks', mask_name)
+                                
+                                # 确保目录存在
+                                os.makedirs(os.path.join(args.path_helper['sample_path'], 'masks'), exist_ok=True)
                             
                             # 将预测掩码转换为numpy数组并保存
                             # Method 0: binary
