@@ -17,13 +17,20 @@ class MIXSEG(Dataset):
         - transform_msk: 标签及提示图像的变换方法
         - mode: "train" 或 "test"
         - prompt: 指定的提示方式，如 'click', 'box', 'random_click', 'central_box'
-        - test_dataset: 测试数据集名称，例如 "BUSI"。在训练模式下，将排除该数据集；在测试模式下，只使用该数据集的数据
+        - test_dataset: 测试数据集名称，例如 "BUSI"。也可以是逗号分隔的多个数据集，例如 "BUSI,BUET,STU"
+                     在训练模式下，将排除这些数据集；在测试模式下，只使用这些数据集的数据
         - prompt_source: 提示来源，目前与 'unet' 等方式保持一致（本代码中未做特殊处理）
         """
         self.data_path = data_path
         self.mode = mode
         self.prompt = args.prompt_type
-        self.test_dataset = args.test_dataset
+        
+        # 处理测试数据集，支持多个数据集输入（逗号分隔）
+        if args.test_dataset and ',' in args.test_dataset:
+            self.test_dataset = [ds.strip() for ds in args.test_dataset.split(',')]
+        else:
+            self.test_dataset = [args.test_dataset] if args.test_dataset else None
+            
         self.img_size = args.image_size
         self.transform = transform
         self.transform_msk = transform_msk
@@ -49,13 +56,13 @@ class MIXSEG(Dataset):
         keys = set(self.image_dict.keys()) & set(self.label_dict.keys())
 
         # 根据 mode 和 test_dataset 参数筛选文件：
-        # 训练模式下，排除文件名前缀等于 test_dataset 的数据；
-        # 测试模式下，只保留文件名前缀等于 test_dataset 的数据。
         if self.test_dataset is not None:
             if self.mode == 'train':
-                keys = {k for k in keys if k.split('_')[0] != self.test_dataset}
+                # 训练模式下，排除所有在 test_dataset 列表中的数据集
+                keys = {k for k in keys if k.split('_')[0] not in self.test_dataset}
             elif self.mode == 'test':
-                keys = {k for k in keys if k.split('_')[0] == self.test_dataset}
+                # 测试模式下，只保留在 test_dataset 列表中的数据集
+                keys = {k for k in keys if k.split('_')[0] in self.test_dataset}
         
         self.name_list = list(keys)
 
